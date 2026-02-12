@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { budgetItemSchema } from "@/schemas/budget";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function GET(
   request: NextRequest,
@@ -47,6 +48,15 @@ export async function POST(
         amount: parsed.data.amount,
         isEstimate: parsed.data.isEstimate,
       },
+    });
+
+    await logActivity({
+      userId: session.user?.id as string,
+      action: "CREATE",
+      entityType: "BUDGET_ITEM",
+      entityId: item.id,
+      projectId,
+      description: `予算項目「${item.category}」を作成しました`,
     });
 
     return apiResponse(item);

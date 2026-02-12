@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { projectSchema } from "@/schemas/project";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -60,6 +61,15 @@ export async function POST(request: NextRequest) {
         venueAddress: parsed.data.venueAddress || null,
         status: parsed.data.status || "DRAFT",
       },
+    });
+
+    await logActivity({
+      userId: session.user?.id as string,
+      action: "CREATE",
+      entityType: "PROJECT",
+      entityId: project.id,
+      projectId: project.id,
+      description: `プロジェクト「${project.name}」を作成しました`,
     });
 
     return apiResponse(project);

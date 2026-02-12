@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { artistSchema } from "@/schemas/artist";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function GET(
   request: NextRequest,
@@ -53,6 +54,14 @@ export async function PATCH(
       data: parsed.data,
     });
 
+    await logActivity({
+      userId: session.user?.id as string,
+      action: "UPDATE",
+      entityType: "ARTIST",
+      entityId: artistId,
+      description: `アーティスト「${artist.name}」を更新しました`,
+    });
+
     return apiResponse(artist);
   } catch {
     return apiError("INTERNAL_ERROR", "アーティストの更新に失敗しました", 500);
@@ -69,9 +78,17 @@ export async function DELETE(
   const { artistId } = await params;
 
   try {
-    await prisma.artist.update({
+    const artist = await prisma.artist.update({
       where: { id: artistId },
       data: { isDeleted: true, deletedAt: new Date() },
+    });
+
+    await logActivity({
+      userId: session.user?.id as string,
+      action: "DELETE",
+      entityType: "ARTIST",
+      entityId: artistId,
+      description: `アーティスト「${artist.name}」を削除しました`,
     });
 
     return apiResponse({ deleted: true });

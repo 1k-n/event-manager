@@ -6,8 +6,10 @@ import {
   LayoutDashboard,
   FolderOpen,
   Users,
+  UsersRound,
   Mail,
   Settings,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +17,9 @@ const navigation = [
   { name: "ダッシュボード", href: "/dashboard", icon: LayoutDashboard },
   { name: "プロジェクト", href: "/projects", icon: FolderOpen },
   { name: "アーティスト", href: "/artists", icon: Users },
+  { name: "スタッフ", href: "/staff", icon: UsersRound },
   { name: "メールテンプレート", href: "/templates", icon: Mail },
+  { name: "アクティビティ", href: "/activities", icon: History },
   { name: "設定", href: "/settings", icon: Settings },
 ];
 

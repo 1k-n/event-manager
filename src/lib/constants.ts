@@ -56,6 +56,32 @@ export const SETTLEMENT_METHOD_LABELS: Record<string, string> = {
   OTHER: "その他",
 };
 
+export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
+  CREATE: "作成",
+  UPDATE: "更新",
+  DELETE: "削除",
+  STATUS_CHANGE: "ステータス変更",
+};
+
+export const ACTIVITY_ENTITY_LABELS: Record<string, string> = {
+  PROJECT: "プロジェクト",
+  ARTIST: "アーティスト",
+  PROJECT_ARTIST: "出演アーティスト",
+  TASK: "タスク",
+  BUDGET_ITEM: "予算項目",
+  TIMETABLE_ENTRY: "タイムテーブル",
+  TICKET_TYPE: "チケット",
+  MEMO: "メモ",
+  FILE: "ファイル",
+};
+
+export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
+  TASK_ASSIGNED: "タスク割り当て",
+  TASK_DUE_SOON: "タスク期限間近",
+  ARTIST_STATUS_CHANGED: "アーティストステータス変更",
+  PROJECT_STATUS_CHANGED: "プロジェクトステータス変更",
+};
+
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",

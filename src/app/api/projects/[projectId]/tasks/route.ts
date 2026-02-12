@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { taskSchema } from "@/schemas/task";
+import { logActivity } from "@/lib/activity-logger";
+import { createNotification } from "@/lib/notification-helper";
 
 export async function GET(
   request: NextRequest,
@@ -66,6 +68,27 @@ export async function POST(
         )
       );
 
+      const userId = session.user?.id as string;
+      for (const t of tasks) {
+        await logActivity({
+          userId,
+          action: "CREATE",
+          entityType: "TASK",
+          entityId: t.id,
+          projectId,
+          description: `タスク「${t.title}」を作成しました`,
+        });
+        if (t.assigneeId && t.assigneeId !== userId) {
+          await createNotification({
+            userId: t.assigneeId,
+            type: "TASK_ASSIGNED",
+            title: "タスクが割り当てられました",
+            message: `タスク「${t.title}」が割り当てられました`,
+            link: `/projects/${projectId}`,
+          });
+        }
+      }
+
       return apiResponse(tasks);
     }
 
@@ -92,6 +115,26 @@ export async function POST(
         projectArtist: { include: { artist: { select: { name: true } } } },
       },
     });
+
+    const userId = session.user?.id as string;
+    await logActivity({
+      userId,
+      action: "CREATE",
+      entityType: "TASK",
+      entityId: task.id,
+      projectId,
+      description: `タスク「${task.title}」を作成しました`,
+    });
+
+    if (task.assigneeId && task.assigneeId !== userId) {
+      await createNotification({
+        userId: task.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: "タスクが割り当てられました",
+        message: `タスク「${task.title}」が割り当てられました`,
+        link: `/projects/${projectId}`,
+      });
+    }
 
     return apiResponse(task);
   } catch {

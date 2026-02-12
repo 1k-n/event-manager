@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
+import { logActivity } from "@/lib/activity-logger";
+import { createNotifications, getAdminAndStaffUserIds } from "@/lib/notification-helper";
 
 const updateProjectArtistSchema = z.object({
   artistStatus: z.enum(["CANDIDATE", "OFFER_SENT", "AWAITING_REPLY", "CONFIRMED", "DECLINED"]).optional(),
@@ -118,6 +120,40 @@ export async function PATCH(
           ]
         : []),
     ]);
+
+    const userId = session.user?.id as string;
+
+    if (parsed.data.artistStatus && parsed.data.artistStatus !== existing.artistStatus) {
+      await logActivity({
+        userId,
+        action: "STATUS_CHANGE",
+        entityType: "PROJECT_ARTIST",
+        entityId: projectArtistId,
+        projectId,
+        description: `アーティスト「${existing.artist.name}」のステータスを変更しました`,
+        metadata: { oldStatus: existing.artistStatus, newStatus: parsed.data.artistStatus },
+      });
+
+      const userIds = await getAdminAndStaffUserIds();
+      await createNotifications(
+        userIds.filter((id) => id !== userId).map((id) => ({
+          userId: id,
+          type: "ARTIST_STATUS_CHANGED" as const,
+          title: "アーティストステータス変更",
+          message: `「${existing.artist.name}」のステータスが変更されました`,
+          link: `/projects/${projectId}`,
+        }))
+      );
+    } else {
+      await logActivity({
+        userId,
+        action: "UPDATE",
+        entityType: "PROJECT_ARTIST",
+        entityId: projectArtistId,
+        projectId,
+        description: `アーティスト「${existing.artist.name}」の情報を更新しました`,
+      });
+    }
 
     return apiResponse(projectArtist);
   } catch {

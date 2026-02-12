@@ -25,7 +25,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from "@/lib/constants";
 import { formatDate, isDueSoon, isOverdue } from "@/lib/format";
 import { TaskCalendar } from "@/components/tasks/task-calendar";
-import { Plus, Trash2, ListTodo, Pencil, CalendarDays, List } from "lucide-react";
+import { useUsers } from "@/hooks/use-users";
+import { Plus, Trash2, ListTodo, Pencil, CalendarDays, List, UserCheck, Music } from "lucide-react";
 
 const priorityColors: Record<string, string> = {
   LOW: "bg-gray-100 text-gray-800",
@@ -113,10 +114,16 @@ export function TaskList({ project, onUpdate }: TaskListProps) {
               {TASK_STATUS_LABELS[task.status as string]}
             </Badge>
             {(assignee?.name as string) ? (
-              <Badge variant="outline">{assignee?.name as string}</Badge>
+              <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                <UserCheck className="h-3 w-3" />
+                {assignee?.name as string}
+              </Badge>
             ) : null}
             {(artist?.name as string) ? (
-              <Badge variant="outline">{artist?.name as string}</Badge>
+              <Badge variant="outline" className="gap-1 bg-purple-50 text-purple-700 border-purple-200">
+                <Music className="h-3 w-3" />
+                {artist?.name as string}
+              </Badge>
             ) : null}
           </div>
           {dueDate ? (
@@ -249,7 +256,9 @@ function TaskFormDialog({
   const [error, setError] = useState("");
   const [status, setStatus] = useState((task?.status as string) || "TODO");
   const [priority, setPriority] = useState((task?.priority as string) || "MEDIUM");
+  const [assigneeId, setAssigneeId] = useState((task?.assigneeId as string) || "");
   const [selectedArtistIds, setSelectedArtistIds] = useState<string[]>([]);
+  const { users } = useUsers();
   const isEdit = !!task;
 
   function getDueDateValue() {
@@ -283,6 +292,7 @@ function TaskFormDialog({
       priority,
       status,
       dueDate: formData.get("dueDate") as string || undefined,
+      assigneeId: assigneeId && assigneeId !== "none" ? assigneeId : undefined,
     };
 
     if (isEdit) {
@@ -328,7 +338,7 @@ function TaskFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (v && task) { setStatus(task.status as string); setPriority(task.priority as string); setSelectedArtistIds([]); } if (v && !task) { setStatus("TODO"); setPriority("MEDIUM"); setSelectedArtistIds([]); } }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (v && task) { setStatus(task.status as string); setPriority(task.priority as string); setAssigneeId((task.assigneeId as string) || ""); setSelectedArtistIds([]); } if (v && !task) { setStatus("TODO"); setPriority("MEDIUM"); setAssigneeId(""); setSelectedArtistIds([]); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "タスク編集" : "タスク追加"}</DialogTitle>
@@ -376,6 +386,22 @@ function TaskFormDialog({
           <div className="space-y-2">
             <Label htmlFor="dueDate">期限</Label>
             <Input id="dueDate" name="dueDate" type="date" defaultValue={getDueDateValue()} />
+          </div>
+          <div className="space-y-2">
+            <Label>担当者</Label>
+            <Select value={assigneeId} onValueChange={setAssigneeId}>
+              <SelectTrigger>
+                <SelectValue placeholder="未割り当て" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">未割り当て</SelectItem>
+                {(users as { id: string; name: string | null; email: string }[]).map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name || user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* アーティスト選択 */}

@@ -66,6 +66,32 @@ enum SettlementMethod {
   OTHER
 }
 
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+}
+
+enum ActivityEntity {
+  PROJECT
+  ARTIST
+  PROJECT_ARTIST
+  TASK
+  BUDGET_ITEM
+  TIMETABLE_ENTRY
+  TICKET_TYPE
+  MEMO
+  FILE
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE_SOON
+  ARTIST_STATUS_CHANGED
+  PROJECT_STATUS_CHANGED
+}
+
 // ============ Auth Models ============
 
 model User {
@@ -84,6 +110,8 @@ model User {
   statusHistories StatusHistory[]
   emailTemplates  EmailTemplate[]
   memos           ProjectMemo[]   @relation("CreatedMemos")
+  activityLogs    ActivityLog[]
+  notifications   Notification[]
 
   @@map("users")
 }
@@ -141,6 +169,7 @@ model Project {
   memos            ProjectMemo[]
   ticketTypes      TicketType[]
   files            ProjectFile[]
+  activityLogs     ActivityLog[]
 
   @@map("projects")
 }
@@ -353,4 +382,44 @@ model EmailTemplate {
   createdBy User @relation(fields: [createdById], references: [id])
 
   @@map("email_templates")
+}
+
+// ============ Activity Log ============
+
+model ActivityLog {
+  id          String         @id @default(cuid())
+  userId      String
+  action      ActivityAction
+  entityType  ActivityEntity
+  entityId    String
+  projectId   String?
+  description String
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ============ Notifications ============
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }

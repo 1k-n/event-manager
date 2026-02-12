@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { artistSchema } from "@/schemas/artist";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -55,6 +56,14 @@ export async function POST(request: NextRequest) {
         bankInfo: parsed.data.bankInfo || null,
         notes: parsed.data.notes || null,
       },
+    });
+
+    await logActivity({
+      userId: session.user?.id as string,
+      action: "CREATE",
+      entityType: "ARTIST",
+      entityId: artist.id,
+      description: `アーティスト「${artist.name}」を作成しました`,
     });
 
     return apiResponse(artist);

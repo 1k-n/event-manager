@@ -56,7 +56,7 @@ export async function POST(
         projectId,
         type: parsed.data.type,
         content: parsed.data.content,
-        authorName: parsed.data.authorName || null,
+        authorName: parsed.data.authorName || session.user?.name || null,
         createdById: session.user?.id as string,
       },
       include: {

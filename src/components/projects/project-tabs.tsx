@@ -10,7 +10,8 @@ import { MemoList } from "@/components/memos/memo-list";
 import { NoteList } from "@/components/memos/note-list";
 import { TicketList } from "@/components/tickets/ticket-list";
 import { FileList } from "@/components/files/file-list";
-import { Users, Clock, ListTodo, Wallet, Info, MessageCircle, StickyNote, Ticket, Paperclip } from "lucide-react";
+import { ActivityTab } from "@/components/activity/activity-tab";
+import { Users, Clock, ListTodo, Wallet, Info, MessageCircle, StickyNote, Ticket, Paperclip, History } from "lucide-react";
 
 interface ProjectTabsProps {
   project: Record<string, unknown>;
@@ -57,6 +58,10 @@ export function ProjectTabs({ project, onUpdate }: ProjectTabsProps) {
           <MessageCircle className="h-4 w-4" />
           連絡帳
         </TabsTrigger>
+        <TabsTrigger value="activity" className="gap-1">
+          <History className="h-4 w-4" />
+          アクティビティ
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">
@@ -85,6 +90,9 @@ export function ProjectTabs({ project, onUpdate }: ProjectTabsProps) {
       </TabsContent>
       <TabsContent value="messages">
         <MemoList project={project} />
+      </TabsContent>
+      <TabsContent value="activity">
+        <ActivityTab projectId={(project as { id: string }).id} />
       </TabsContent>
     </Tabs>
   );

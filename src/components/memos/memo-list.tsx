@@ -1,21 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Send, Trash2, Pencil, Check, X, MessageCircle, UserPlus, CheckCheck } from "lucide-react";
+import { Send, Trash2, Pencil, Check, X, MessageCircle, CheckCheck } from "lucide-react";
 
 interface MemoListProps {
   project: Record<string, unknown>;
@@ -73,71 +66,20 @@ function getAvatarColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-const MEMBERS_KEY = "memo-members";
-const SELECTED_MEMBER_KEY = "memo-selected-member";
-
-function loadMembers(): string[] {
-  if (typeof window === "undefined") return [];
-  const saved = localStorage.getItem(MEMBERS_KEY);
-  return saved ? JSON.parse(saved) : [];
-}
-
-function saveMembers(members: string[]) {
-  localStorage.setItem(MEMBERS_KEY, JSON.stringify(members));
-}
-
 export function MemoList({ project }: MemoListProps) {
   const projectId = project.id as string;
+  const { data: session } = useSession();
+  const currentUserName = session?.user?.name || "不明";
+
   const [memos, setMemos] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [newContent, setNewContent] = useState("");
-  const [members, setMembers] = useState<string[]>([]);
-  const [selectedMember, setSelectedMember] = useState("");
-  const [newMemberName, setNewMemberName] = useState("");
-  const [showAddMember, setShowAddMember] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // localStorage からメンバーリストと選択中メンバーを復元
-  useEffect(() => {
-    const m = loadMembers();
-    setMembers(m);
-    const saved = localStorage.getItem(SELECTED_MEMBER_KEY);
-    if (saved && m.includes(saved)) {
-      setSelectedMember(saved);
-    }
-  }, []);
-
-  function handleSelectMember(name: string) {
-    setSelectedMember(name);
-    localStorage.setItem(SELECTED_MEMBER_KEY, name);
-  }
-
-  function handleAddMember() {
-    const name = newMemberName.trim();
-    if (!name || members.includes(name)) return;
-    const updated = [...members, name];
-    setMembers(updated);
-    saveMembers(updated);
-    setSelectedMember(name);
-    localStorage.setItem(SELECTED_MEMBER_KEY, name);
-    setNewMemberName("");
-    setShowAddMember(false);
-  }
-
-  function handleRemoveMember(name: string) {
-    const updated = members.filter((m) => m !== name);
-    setMembers(updated);
-    saveMembers(updated);
-    if (selectedMember === name) {
-      setSelectedMember(updated[0] || "");
-      localStorage.setItem(SELECTED_MEMBER_KEY, updated[0] || "");
-    }
-  }
 
   async function fetchMemos() {
     try {
@@ -161,7 +103,7 @@ export function MemoList({ project }: MemoListProps) {
   }, [memos]);
 
   async function handleAdd() {
-    if (!newContent.trim() || !selectedMember) return;
+    if (!newContent.trim()) return;
     setSaving(true);
     const res = await fetch(`/api/projects/${projectId}/memos`, {
       method: "POST",
@@ -169,7 +111,6 @@ export function MemoList({ project }: MemoListProps) {
       body: JSON.stringify({
         content: newContent,
         type: "MESSAGE",
-        authorName: selectedMember,
       }),
     });
     const result = await res.json();
@@ -196,12 +137,11 @@ export function MemoList({ project }: MemoListProps) {
   }
 
   async function handleConfirm(memo: Record<string, unknown>) {
-    if (!selectedMember) return;
     const currentConfirmed = (memo.confirmedBy as string[]) || [];
-    const alreadyConfirmed = currentConfirmed.includes(selectedMember);
+    const alreadyConfirmed = currentConfirmed.includes(currentUserName);
     const newConfirmed = alreadyConfirmed
-      ? currentConfirmed.filter((n) => n !== selectedMember)
-      : [...currentConfirmed, selectedMember];
+      ? currentConfirmed.filter((n) => n !== currentUserName)
+      : [...currentConfirmed, currentUserName];
 
     await fetch(`/api/projects/${projectId}/memos/${memo.id}`, {
       method: "PATCH",
@@ -273,11 +213,12 @@ export function MemoList({ project }: MemoListProps) {
               </div>
               <div className="space-y-3">
                 {group.items.map((memo) => {
-                  const authorName = (memo.authorName as string) || "不明";
+                  const createdBy = memo.createdBy as Record<string, unknown> | null;
+                  const authorName = (createdBy?.name as string) || (memo.authorName as string) || "不明";
                   const initial = authorName.charAt(0);
                   const avatarColor = getAvatarColor(authorName);
                   const confirmed = (memo.confirmedBy as string[]) || [];
-                  const iConfirmed = selectedMember ? confirmed.includes(selectedMember) : false;
+                  const iConfirmed = confirmed.includes(currentUserName);
 
                   return (
                     <div key={memo.id as string} className="flex gap-2 group">
@@ -321,19 +262,15 @@ export function MemoList({ project }: MemoListProps) {
                         {/* 確認済み表示 + アクションボタン */}
                         {editId !== (memo.id as string) && (
                           <div className="flex items-center gap-2 mt-1">
-                            {/* 確認ボタン */}
-                            {selectedMember && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-6 text-xs px-2 ${iConfirmed ? "text-green-600" : "text-muted-foreground"}`}
-                                onClick={() => handleConfirm(memo)}
-                              >
-                                <CheckCheck className="mr-1 h-3 w-3" />
-                                {iConfirmed ? "確認済" : "確認"}
-                              </Button>
-                            )}
-                            {/* 確認者一覧 */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-6 text-xs px-2 ${iConfirmed ? "text-green-600" : "text-muted-foreground"}`}
+                              onClick={() => handleConfirm(memo)}
+                            >
+                              <CheckCheck className="mr-1 h-3 w-3" />
+                              {iConfirmed ? "確認済" : "確認"}
+                            </Button>
                             {confirmed.length > 0 && (
                               <div className="flex items-center gap-1">
                                 {confirmed.map((name) => (
@@ -343,7 +280,6 @@ export function MemoList({ project }: MemoListProps) {
                                 ))}
                               </div>
                             )}
-                            {/* 編集・削除（ホバー表示） */}
                             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditId(memo.id as string); setEditContent(memo.content as string); }}>
                                 <Pencil className="h-3 w-3" />
@@ -367,87 +303,24 @@ export function MemoList({ project }: MemoListProps) {
 
       {/* 入力エリア */}
       <div className="border-t pt-3 mt-auto space-y-2">
-        {/* メンバー選択 */}
-        <div className="flex gap-2 items-center">
-          {members.length > 0 ? (
-            <Select value={selectedMember} onValueChange={handleSelectMember}>
-              <SelectTrigger className="w-36 h-8 text-sm">
-                <SelectValue placeholder="名前を選択" />
-              </SelectTrigger>
-              <SelectContent>
-                {members.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <span className="text-sm text-muted-foreground">メンバーを追加してください</span>
-          )}
-          <span className="text-xs text-muted-foreground">として投稿</span>
-
-          {showAddMember ? (
-            <div className="flex gap-1 items-center ml-auto">
-              <Input
-                value={newMemberName}
-                onChange={(e) => setNewMemberName(e.target.value)}
-                placeholder="名前"
-                className="w-24 h-7 text-sm"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === "Enter") handleAddMember(); }}
-              />
-              <Button size="sm" variant="default" className="h-7 text-xs px-2" onClick={handleAddMember} disabled={!newMemberName.trim()}>
-                追加
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setShowAddMember(false); setNewMemberName(""); }}>
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={() => setShowAddMember(true)}>
-              <UserPlus className="mr-1 h-3 w-3" />
-              メンバー追加
-            </Button>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{currentUserName}</span> として投稿
+          </span>
         </div>
 
-        {/* メンバー一覧（削除可能） */}
-        {members.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {members.map((name) => (
-              <Badge
-                key={name}
-                variant={name === selectedMember ? "default" : "outline"}
-                className="text-xs cursor-pointer gap-1"
-                onClick={() => handleSelectMember(name)}
-              >
-                {name}
-                <button
-                  className="ml-0.5 hover:text-destructive"
-                  onClick={(e) => { e.stopPropagation(); handleRemoveMember(name); }}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {/* メッセージ入力 */}
         <div className="flex gap-2">
           <Textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={selectedMember ? "メッセージを入力... (Shift+Enterで改行)" : "先にメンバーを追加・選択してください"}
+            placeholder="メッセージを入力... (Shift+Enterで改行)"
             rows={2}
             className="resize-none text-sm"
-            disabled={!selectedMember}
           />
           <Button
             onClick={handleAdd}
-            disabled={saving || !newContent.trim() || !selectedMember}
+            disabled={saving || !newContent.trim()}
             size="icon"
             className="h-auto aspect-square self-end"
           >

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { apiResponse, apiError } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { projectSchema } from "@/schemas/project";
+import { logActivity } from "@/lib/activity-logger";
+import { createNotifications, getAdminAndStaffUserIds } from "@/lib/notification-helper";
 
 export async function GET(
   request: NextRequest,
@@ -62,6 +64,11 @@ export async function PATCH(
       return apiError("VALIDATION_ERROR", parsed.error.issues[0].message);
     }
 
+    const existing = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { name: true, status: true },
+    });
+
     const project = await prisma.project.update({
       where: { id: projectId },
       data: {
@@ -69,6 +76,40 @@ export async function PATCH(
         eventDate: parsed.data.eventDate ? new Date(parsed.data.eventDate) : undefined,
       },
     });
+
+    const userId = session.user?.id as string;
+
+    if (parsed.data.status && existing && parsed.data.status !== existing.status) {
+      await logActivity({
+        userId,
+        action: "STATUS_CHANGE",
+        entityType: "PROJECT",
+        entityId: projectId,
+        projectId,
+        description: `プロジェクト「${project.name}」のステータスを変更しました`,
+        metadata: { oldStatus: existing.status, newStatus: parsed.data.status },
+      });
+
+      const userIds = await getAdminAndStaffUserIds();
+      await createNotifications(
+        userIds.filter((id) => id !== userId).map((id) => ({
+          userId: id,
+          type: "PROJECT_STATUS_CHANGED" as const,
+          title: "プロジェクトステータス変更",
+          message: `「${project.name}」のステータスが変更されました`,
+          link: `/projects/${projectId}`,
+        }))
+      );
+    } else {
+      await logActivity({
+        userId,
+        action: "UPDATE",
+        entityType: "PROJECT",
+        entityId: projectId,
+        projectId,
+        description: `プロジェクト「${project.name}」を更新しました`,
+      });
+    }
 
     return apiResponse(project);
   } catch {
@@ -86,9 +127,18 @@ export async function DELETE(
   const { projectId } = await params;
 
   try {
-    await prisma.project.update({
+    const project = await prisma.project.update({
       where: { id: projectId },
       data: { isDeleted: true, deletedAt: new Date() },
+    });
+
+    await logActivity({
+      userId: session.user?.id as string,
+      action: "DELETE",
+      entityType: "PROJECT",
+      entityId: projectId,
+      projectId,
+      description: `プロジェクト「${project.name}」を削除しました`,
     });
 
     return apiResponse({ deleted: true });

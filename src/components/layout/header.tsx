@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, LogOut, User, Mail } from "lucide-react";
 import { MobileSidebar } from "./mobile-sidebar";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export function Header() {
   const { data: session } = useSession();
@@ -31,6 +32,8 @@ export function Header() {
       </Sheet>
 
       <div className="flex-1" />
+
+      <NotificationBell />
 
       <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" title="Gmailを開く">
         <Button variant="ghost" size="icon">
