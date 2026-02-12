@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
     });
 
     return apiResponse(user);
-  } catch {
+  } catch (error) {
+    console.error("Register error:", error);
     return apiError("INTERNAL_ERROR", "サーバーエラーが発生しました", 500);
   }
 }

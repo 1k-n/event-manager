@@ -7,7 +7,11 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  let connectionString = process.env.DATABASE_URL!;
+  if (process.env.NODE_ENV === "production" && !connectionString.includes("sslmode")) {
+    connectionString += connectionString.includes("?") ? "&sslmode=require" : "?sslmode=require";
+  }
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter }) as PrismaClient;
 }
 
