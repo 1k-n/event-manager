@@ -1,1 +1,20 @@
+name: Supabase Keep Alive
 
+"on":
+  schedule:
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call Supabase REST API
+        run: |
+          curl -i -f -sS \
+            "$SUPABASE_URL/rest/v1/health_check?select=id&limit=1" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
